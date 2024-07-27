@@ -1,6 +1,5 @@
-# cacl1_dag
+# gbp_usd_eur_dag.py 
 
-import time
 import logging
 import dag_dot
 
@@ -9,7 +8,10 @@ logger = logging.getLogger()
 
 class MyDAG(dag_dot.DAG): # implementation
     '''my dag'''
+    __shared_state = {} 
+
     def __init__(self,filename):
+        self.__dict__ = self.__shared_state
         super(MyDAG, self).__init__(filename)
         if hasattr(self,'o'):
             return
@@ -26,7 +28,7 @@ class MyDAG(dag_dot.DAG): # implementation
         self.b = self.makeNode(label='usd-eur',calc=None,usedby=[self.i], nodetype='in')
         self.c = self.makeNode(label='eur-gbp',calc=None,usedby=[self.bb], nodetype='in')
 
-        self.dot_pp()
+        #self.dot_pp()
 
 
     @dag_dot.calc
