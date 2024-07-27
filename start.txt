@@ -1,1 +1,3 @@
 uvicorn main:app --reload
+
+( dev dir :- /Users/python/pydagoras/pydagoras_eg/pydagoras_backend )
