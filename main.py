@@ -7,22 +7,26 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 import gbp_usd_eur_dag
-import asyncio
-
+import long_calc_dag
+import short_calc_dag
+ 
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
-app.counter = 5
-app.D = gbp_usd_eur_dag.MyDAG('./mr/data/gbp_usd_eur.png')
+app.D = gbp_usd_eur_dag.MyDAG('gbp_usd_eur')
+app.D2 = long_calc_dag.MyDAG2('long_calc')
+app.D3 = short_calc_dag.MyDAG3('duplicate_nodes')
 app.D.set_input('eur-gbp',1)
+app.D.set_input('usd-eur',10)
+print('start ....')
 
 app.add_middleware(
-CORSMiddleware,
-allow_origins=["*"], # Allows all origins
-allow_credentials=True,
-allow_methods=["*"], # Allows all methods
-allow_headers=["*"], # Allows all headers
-)
+        CORSMiddleware,
+        allow_origins=["*"], # Allows all origins
+        allow_credentials=True,
+        allow_methods=["*"], # Allows all methods
+        allow_headers=["*"], # Allows all headers
+        )
 
 class Item(BaseModel):
     name: str
@@ -33,7 +37,7 @@ html = """
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Chat</title>
+        <title>DagOutputs</title>
     </head>
     <body>
         <h1>WebSocket Chat</h1>
@@ -82,6 +86,7 @@ class ConnectionManager:
         await websocket.send_text(message)
 
     async def broadcast(self, message: str):
+        print('broadcast message')
         for connection in self.active_connections:
             await connection.send_text(message)
 
@@ -91,18 +96,21 @@ manager = ConnectionManager()
 
 @app.get("/")
 async def get():
-    # open dag socket
-    # pump_dag
-
     return HTMLResponse(html)
 
 
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: int):
     await manager.connect(websocket)
+
     msg = app.D.G.to_string()
-    await manager.broadcast(msg)
-    #await manager.broadcast(f"Client #{client_id} joined the chat")
+    msg2 = app.D2.G.to_string()
+    msg3 = app.D3.G.to_string()
+    
+    await manager.broadcast(f'A:{msg}')
+    await manager.broadcast(f'B:{msg2}')
+    await manager.broadcast(f'C:{msg3}')
+
     try:
         while True:
             data = await websocket.receive_text()
@@ -120,17 +128,39 @@ async def root():
 
 @app.patch("/items/{item_id}")
 async def update_item(item_id:str, value:float):
-    app.counter += 1
-    #app.D.set_input('eur-gbp',2)
-    app.D.set_input(item_id, value)
+    print(f'patch: {item_id=} {value=}')
+    for dag, dag_name in zip([ app.D, app.D2, app.D3 ], ['A', 'B','C'] ):
 
-    #await asyncio.sleep(2)
+        dag_update = False
+        for node in dag.input_nodes:
+            #print(f'{node.doc=}, {node.display_name=}')
+            if item_id == node.node_id:
+                #print('set input AAAAAAAA..................')
+                #dag.set_input1(item_id, value)
+                #msg = dag.G.to_string()
+                #await manager.broadcast(f'{dag_name}:{msg}')
+                #print('sent 1')
+                #print('set input BBBBBB..................')
+                dag.set_input(item_id, value)
+                msg = dag.G.to_string()
+                #await manager.broadcast(f'{dag_name}:{msg}')
+                #print('sent 2')
 
-    msg = app.D.G.to_string()
-    await manager.broadcast(msg)
+                dag.set_input(item_id, value)
+                
+                dag_update = True
 
-    #await manager.broadcast(f'MH eg_dag ... {app.counter=}')
+        if dag_update:
+           msg = dag.G.to_string()
+           await manager.broadcast(f'{dag_name}:{msg}')
+
+           print('done broadcast')
+           #print(msg)
+
     return {"item_name ?? out put ??" }
 
 
 
+ # at last, the bottom of the file/module
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=5049)
