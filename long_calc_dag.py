@@ -24,7 +24,7 @@ class MyDAG2(dag_dot.DAG): # implementation
         # internal nodes
         self.bb = self.makeNode(label='calc_B',calc=self.calcRateB,usedby=[self.o], nodetype='internal')
         self.i = self.makeNode(label='calc_A',calc=self.calcRateA,usedby=[self.bb], nodetype='internal')
-        self.cc = self.makeNode(label='10s',calc=self.calcRateC,usedby=[self.bb], nodetype='internal')
+        self.cc = self.makeNode(label='2s',calc=self.calcRateC,usedby=[self.bb], nodetype='internal')
 
         # input nodes
         self.a = self.makeNode(label='A',calc=None,usedby=[self.i], nodetype='in')
@@ -40,11 +40,11 @@ class MyDAG2(dag_dot.DAG): # implementation
 
     @dag_dot.calc
     def calcRateB(self, node=None):
-        return self.i.value * self.c.value
+        return self.i.value * self.cc.value
 
     @dag_dot.calc
     def calcRateC(self, node=None):
         print('WAIT !!!!')
-        time.sleep(5)
+        time.sleep(2)
         return self.c.value *  10
  
