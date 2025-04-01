@@ -34,7 +34,7 @@ class DAG(object): # functionality
 
 
     def AddEdge(self,node1,node2):
-        self.G.add_edge(node1,node2,label='Undefined')
+        self.G.add_edge(node1,node2,label='Undefined', fontname="Courier")
 
     def update_node(self,node1,node2,value):
         print('UPDATE_NODE')
@@ -47,7 +47,7 @@ class DAG(object): # functionality
             color='red'
 
         self.G.add_node(node1,color=color,fontcolor=fontcolor,URL=node1+'.html',tooltip=node1)
-        self.G.add_edge(node1,node2, label=value,fontcolor=fontcolor,color=color)
+        self.G.add_edge(node1,node2, label=value,fontcolor=fontcolor,color=color, fontname="Courier")
         print('added node and edge')
         #self.dot_pp()
 
@@ -57,7 +57,7 @@ class DAG(object): # functionality
         fontcolor=color
         color = color
         self.G.add_node(node1,color=color,fontcolor=fontcolor,URL=node1+'.html',tooltip=node1)
-        self.G.add_edge(node1,node2, label=value,fontcolor=fontcolor,color=color)
+        self.G.add_edge(node1,node2, label=value,fontcolor=fontcolor,color=color, fontname="Courier")
         self.dot_pp()
         print('fade')
 
