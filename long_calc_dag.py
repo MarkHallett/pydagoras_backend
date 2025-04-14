@@ -22,17 +22,14 @@ class MyDAG2(dag_dot.DAG): # implementation
         self.o = self.makeNode(label='Out',calc=None,usedby = [],    nodetype='out')
 
         # internal nodes
-        self.bb = self.makeNode(label='calc_B',calc=self.calcRateB,usedby=[self.o], nodetype='internal')
-        self.i = self.makeNode(label='calc_A',calc=self.calcRateA,usedby=[self.bb], nodetype='internal')
-        self.cc = self.makeNode(label='2s',calc=self.calcRateC,usedby=[self.bb], nodetype='internal')
+        self.bb = self.makeNode(label='calc_B',calc=self.calcRateB,usedby=[self.o], nodetype='internal', tooltip='multiply')
+        self.i = self.makeNode(label='calc_A',calc=self.calcRateA,usedby=[self.bb], nodetype='internal', tooltip='multiply')
+        self.cc = self.makeNode(label='2s',calc=self.calcRateC,usedby=[self.bb], nodetype='internal', tooltip='x10')
 
         # input nodes
-        self.a = self.makeNode(label='A',calc=None,usedby=[self.i], nodetype='in')
-        self.b = self.makeNode(label='B',calc=None,usedby=[self.i], nodetype='in')
-        self.c = self.makeNode(label='C',calc=None,usedby=[self.cc], nodetype='in')
-
-        #self.dot_pp()
-
+        self.a = self.makeNode(label='A',calc=None,usedby=[self.i], nodetype='in', tooltip='source A')
+        self.b = self.makeNode(label='B',calc=None,usedby=[self.i], nodetype='in', tooltip='source B')
+        self.c = self.makeNode(label='C',calc=None,usedby=[self.cc], nodetype='in', tooltip='source C')
 
     @dag_dot.calc
     def calcRateA(self, node=None):

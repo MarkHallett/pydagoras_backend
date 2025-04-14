@@ -1,32 +1,32 @@
 # dag_dot
 
-import time
 import logging
 import pygraphviz as pgv
 
 logger = logging.getLogger()
 
-class DAG(object): # functionality
+class DAG(object):
     '''Base DAG'''
 
     def __init__(self, label):
         self.G=pgv.AGraph(directed=True, strict=True, rankdir='LR', label=label, labelloc="t")
         self.input_nodes=[]
 
-    def makeNode(self,label,calc,usedby,nodetype, display_name=None):
-        n = Node(label,calc,usedby,nodetype,display_name)
+    def makeNode(self,label,calc,usedby,nodetype, display_name=None, tooltip=''):
+        n = Node(label,calc,usedby,nodetype,display_name,tooltip)
         if nodetype == 'in':
             self.input_nodes.append(n)
-        self.defNode(n,usedby =usedby, nodetype=nodetype)
+        self.defNode(n,usedby, nodetype, tooltip)
         return n
 
-    def defNode(self,node,usedby,nodetype):
+    def defNode(self,node,usedby,nodetype,tooltip):
         doc = node.display_name
         if nodetype == 'in':
-            self.G.add_node(doc, shape="square")
+            self.G.add_node(doc, shape="square", tooltip=tooltip)
             for n in usedby:
                 self.AddEdge(doc,n.display_name)
         elif nodetype == 'internal':
+            self.G.add_node(doc, tooltip=tooltip)
             for n in usedby:
                 self.AddEdge(doc,n.display_name)
         elif nodetype == 'out':
@@ -36,7 +36,7 @@ class DAG(object): # functionality
     def AddEdge(self,node1,node2):
         self.G.add_edge(node1,node2,label='Undefined', fontname="Courier")
 
-    def update_node(self,node1,node2,value):
+    def update_node(self,node1,node2,value,tooltip='not set XXX'):
         print('UPDATE_NODE')
         color = 'green'
         fontcolor='blue'
@@ -46,7 +46,7 @@ class DAG(object): # functionality
             fontcolor='red'
             color='red'
 
-        self.G.add_node(node1,color=color,fontcolor=fontcolor,URL=node1+'.html',tooltip=node1)
+        self.G.add_node(node1,color=color,fontcolor=fontcolor,tooltip=tooltip)
         self.G.add_edge(node1,node2, label=value,fontcolor=fontcolor,color=color, fontname="Courier")
         print('added node and edge')
         #self.dot_pp()
@@ -62,14 +62,14 @@ class DAG(object): # functionality
         print('fade')
 
 
-    def set_input1(self,node_id,value):
-        print(f'set_input1 {node_id=} {value=}')
-        for node in self.input_nodes:
-            if node.node_id == node_id:
-                
-                for usedby in node.usedby:
-                    print(f' . UPDATE NODE used by...')
-                    self.update_node(node.display_name,usedby.node_id, value=value)
+    #def set_input1(self,node_id,value):
+    #    print(f'set_input1 {node_id=} {value=}')
+    #    for node in self.input_nodes:
+    #        if node.node_id == node_id:
+    #            
+    #            for usedby in node.usedby:
+    #                print(f' . UPDATE NODE used by...')
+    #                self.update_node(node.display_name,usedby.node_id, value=value,tooltip='ABCD')
 
 
     def set_input(self,node_id,value):
@@ -78,7 +78,7 @@ class DAG(object): # functionality
             if node.node_id == node_id:
                 
                 for usedby in node.usedby:
-                    self.update_node(node.display_name,usedby.node_id, value=value)
+                    self.update_node(node.display_name,usedby.node_id, value=value, tooltip=node.tooltip)
                     print(f' . UPDATE NODE used by...')
 
                 print(f'.. SET node {node.node_id=} {node.display_name=} to {value=}')
@@ -141,7 +141,7 @@ def calc(f1):
 
             for u_node in node.usedby:
                 for o_node in u_node.usedby:
-                    self.update_node(u_node.node_id,o_node.node_id, value='-')
+                    self.update_node(u_node.node_id,o_node.node_id, value='-', tooltip=node.tooltip)
 
             try:
                 rtn = f1(self,*args, **kwargs)
@@ -153,14 +153,14 @@ def calc(f1):
 
             for u_node in node.usedby:
                 for o_node in u_node.usedby:
-                    self.update_node(u_node.node_id,o_node.node_id, value=rtn)
+                    self.update_node(u_node.node_id,o_node.node_id, value=rtn, tooltip=u_node.tooltip)
 
             return rtn
         return f3
 
 
 class Node(object):
-    def __init__(self, node_id=None, calc=None,usedby=None, nodetype=None, display_name=None):
+    def __init__(self, node_id=None, calc=None,usedby=None, nodetype=None, display_name=None, tooltip='notset2'):
         self.calc = calc
         self.node_id = node_id
         self.usedby = usedby
@@ -170,6 +170,7 @@ class Node(object):
             self.display_name = display_name
         else:
             self.display_name = node_id
+        self.tooltip = tooltip
 
     def pp(self):
         if self.usedby:

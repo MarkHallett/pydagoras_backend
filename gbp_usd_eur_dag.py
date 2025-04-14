@@ -12,6 +12,7 @@ class MyDAG(dag_dot.DAG): # implementation
 
     def __init__(self,filename):
         self.__dict__ = self.__shared_state
+
         super(MyDAG, self).__init__(filename)
         if hasattr(self,'o'):
             return
@@ -20,16 +21,13 @@ class MyDAG(dag_dot.DAG): # implementation
         self.o = self.makeNode(label='GBP/USD/EUR',calc=None,usedby = [],    nodetype='out')
 
         # internal nodes
-        self.bb = self.makeNode(label='calc_B',calc=self.calcRateB,usedby=[self.o], nodetype='internal')
-        self.i = self.makeNode(label='calc_A',calc=self.calcRateA,usedby=[self.bb], nodetype='internal')
+        self.bb = self.makeNode(label='calc_B',calc=self.calcRateB,usedby=[self.o], nodetype='internal', tooltip='multiply')
+        self.i = self.makeNode(label='calc_A',calc=self.calcRateA,usedby=[self.bb], nodetype='internal', tooltip='multiply')
 
         # input nodes
-        self.a = self.makeNode(label='gbp-usd',calc=None,usedby=[self.i], nodetype='in')
-        self.b = self.makeNode(label='usd-eur',calc=None,usedby=[self.i], nodetype='in')
-        self.c = self.makeNode(label='eur-gbp',calc=None,usedby=[self.bb], nodetype='in')
-
-        #self.dot_pp()
-
+        self.a = self.makeNode(label='gbp-usd',calc=None,usedby=[self.i], nodetype='in', tooltip='source 1')
+        self.b = self.makeNode(label='usd-eur',calc=None,usedby=[self.i], nodetype='in', tooltip='source 2')
+        self.c = self.makeNode(label='eur-gbp',calc=None,usedby=[self.bb], nodetype='in', tooltip='source 3')
 
     @dag_dot.calc
     def calcRateA(self, node=None):
