@@ -1,7 +1,7 @@
 # gbp_usd_eur_dag.py 
 
 import logging
-import dag_dot
+from pydagoras import dag_dot
 
 logger = logging.getLogger()
 
@@ -36,3 +36,11 @@ class MyDAG(dag_dot.DAG): # implementation
     @dag_dot.calc
     def calcRateB(self, node=None):
         return self.i.value * self.c.value
+
+    # special cases
+    def get_colors(self, value):
+        if value in ( 0, 'e'):
+            return 'red', 'red'
+        return super().get_colors(value)
+
+
