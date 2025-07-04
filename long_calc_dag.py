@@ -2,7 +2,7 @@
 
 import time
 import logging
-import dag_dot
+from pydagoras import dag_dot
 
 logger = logging.getLogger()
 
@@ -16,6 +16,7 @@ class MyDAG2(dag_dot.DAG): # implementation
 
         super(MyDAG2, self).__init__(filename)
         if hasattr(self,'o'):
+            print('already created' , type(self) )
             return
 
         # output node

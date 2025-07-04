@@ -1,7 +1,7 @@
 # short_calc_dag
 
 import logging
-import dag_dot
+from pydagoras import dag_dot
 
 logger = logging.getLogger()
 
