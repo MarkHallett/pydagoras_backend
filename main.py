@@ -1,31 +1,33 @@
 # main.py
 
 import datetime
+import string
+import logging
+
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
 from fastapi import FastAPI
 
+import basic_dag
 import gbp_usd_eur_dag
 import long_calc_dag
-import short_calc_dag
+import dup_nodes_dag
  
 from fastapi.middleware.cors import CORSMiddleware
 
+logging.basicConfig( format='%(asctime)s %(filename)s %(message)s')
+                    
+
+logger = logging.getLogger(__name__)
+logger.warning('STARTING')
+
+
 app = FastAPI()
-app.D = gbp_usd_eur_dag.MyDAG('gbp_usd_eur')
-app.D2 = long_calc_dag.MyDAG2('long_calc')
-app.D3 = short_calc_dag.MyDAG3('duplicate_nodes')
-
-#app.D.set_input('eur-gbp',1)
-#app.D.set_input('usd-eur',10)
-print('start ....')
-
-print( app.D3.G.to_string() )
-print( app.D)
-print( app.D3)
-
+app.basic_dag = basic_dag.BasicDAG('Basic DAG')
+app.D = gbp_usd_eur_dag.FxDAG('FX GBP/USD/EUR')
+app.D3 = dup_nodes_dag.DupNodesDAG('Duplicate nodes')
 
 app.add_middleware(
         CORSMiddleware,
@@ -34,7 +36,6 @@ app.add_middleware(
         allow_methods=["*"], # Allows all methods
         allow_headers=["*"], # Allows all headers
         )
-
 
 html = """
 <!DOCTYPE html>
@@ -79,7 +80,6 @@ def divmod_excel(n):
         return a - 1, b + 26
     return a, b
 
-import string
 def to_excel(num):
     chars = []
     while num > 0:
@@ -92,9 +92,7 @@ def convert_count_to_reference(count: int) -> str:
     """Convert a count to a reference string."""
     if isinstance(count, str):
         return count # hacky!!
-    print ('!!!! count', count)
     return to_excel(count +26)
-    return f"Ref-{count}"
 
 class ConnectionManager:
     connection_reference_count = 0
@@ -106,7 +104,6 @@ class ConnectionManager:
         #cls.connection_reference_count += 1  
         return cls.connection_reference_count    
     def __init__(self):
-        print('!!!!!!', ConnectionManager.connection_reference_count)
         self.active_connections: list[WebSocket] = []
 
     async def connect(self, websocket: WebSocket):
@@ -149,12 +146,11 @@ async def get():
 
 @app.get("/connections")
 async def get():
-    #return manager.get_active_connections()
     return ConnectionManager.get_connections()
 
-@app.get("/updates") # to remove
-async def get():
-    return updates
+#@app.get("/updates") # to remove
+#async def get():
+#    return updates
 
 @app.get("/patches")
 async def get():
@@ -175,13 +171,13 @@ async def websocket_endpoint(websocket: WebSocket, client_id: int):
                                 'disconnect_time': 'Active'
                                 }    
     msg = app.D.G.to_string()
-    msg2 = app.D2.G.to_string()
+    msg2 = app.basic_dag.G.to_string()
     msg3 = app.D3.G.to_string()
     
     await manager.send_personal_message(f"Prime site", websocket)
-    await manager.send_personal_message(f'A:{msg}',websocket)
-    await manager.send_personal_message(f'B:{msg2}', websocket)
-    await manager.send_personal_message(f'C:{msg3}', websocket)
+    await manager.send_personal_message(f'BasicDAG:{msg2}', websocket)
+    await manager.send_personal_message(f'DupNodes:{msg3}', websocket)
+    await manager.send_personal_message(f'FX:{msg}',websocket)
 
     try:
         while True:
@@ -205,10 +201,6 @@ async def root():
 async def update_item(item_id:str, value:float, client_id: int=0):
     time_of_update = datetime.datetime.now().isoformat(' ', 'seconds')
     await manager.broadcast(f'INPUT {time_of_update} {client_id=} {item_id=} {value=}')
-    # TODO log info
-    #if client_id ==0:
-    #    updater_id = 'unknown1'
-    #else:
 
     updater_id = connections2.get(client_id, {}).get('updater_id', 'unknown')
     updater_id = convert_count_to_reference(updater_id)
@@ -225,12 +217,12 @@ async def update_item(item_id:str, value:float, client_id: int=0):
                     }) 
 
 
-    for dag, dag_name in zip([ app.D, app.D2, app.D3 ], ['A', 'B','C'] ):
+    for dag, dag_name in zip([ app.D, app.basic_dag, app.D3 ], ['FX', 'BasicDAG','DupNodes'] ):
 
         dag_update = False
         for node in dag.input_nodes:
-            #print(f'{node.doc=}, {node.display_name=}')
             if item_id == node.node_id:
+                print(f'Update {node.display_name=} {value=}')
                 dag.set_input(item_id, value)
                 msg = dag.G.to_string()
                 dag.set_input(item_id, value)
@@ -242,7 +234,6 @@ async def update_item(item_id:str, value:float, client_id: int=0):
            await manager.broadcast(f'{dag_name}:{msg}')
 
            print('done broadcast')
-           #print(msg)
 
     return {"item_name ?? out put ??" }
 
