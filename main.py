@@ -11,18 +11,16 @@ from fastapi.responses import HTMLResponse
 from fastapi import FastAPI
 
 import basic_dag
-import gbp_usd_eur_dag
-import long_calc_dag
 import dup_nodes_dag
+import gbp_usd_eur_dag
  
 from fastapi.middleware.cors import CORSMiddleware
 
-logging.basicConfig( format='%(asctime)s %(filename)s %(message)s')
-                    
-
+logging.basicConfig(level=logging.INFO)
+logging.basicConfig( format='%(asctime)s %(levelname)s %(filename)s %(message)s')
 logger = logging.getLogger(__name__)
-logger.warning('STARTING')
 
+logger.info('STARTING')
 
 app = FastAPI()
 app.basic_dag = basic_dag.BasicDAG('Basic DAG')
@@ -112,31 +110,30 @@ class ConnectionManager:
         time_of_connection = datetime.datetime.now().isoformat(' ', 'seconds')
         self.active_connections.append(websocket)
         self.connection_reference = convert_count_to_reference(ConnectionManager.connection_reference_count)
+        logger.info(f'CONNECTED: {ConnectionManager.connection_reference_count=}, {self.connection_reference=}, {time_of_connection=}')
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
+        logger.info(f'DISCONNECTED: {ConnectionManager.connection_reference_count=}, {self.connection_reference=}')
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
         await websocket.send_text(message)
 
     async def broadcast(self, message: str):
-        print('broadcast message')
+        #print('broadcast message')
+        #print(message)
         for connection in self.active_connections:
             await connection.send_text(message)
-
-    def get_active_connections(self): # to remove
-        return [str(conn.client) for conn in self.active_connections]
 
     @classmethod
     def get_connections(cls):
         rtn = []
-        for value in connections2.values():
+        for value in client_connections.values():
             rtn.append(value)
         return rtn[::-1]
 
 manager = ConnectionManager()
-updates = [] # to remove
-connections2 = {}
+client_connections = {}
 patches = []
 
 
@@ -146,11 +143,8 @@ async def get():
 
 @app.get("/connections")
 async def get():
+    get.logger(f'get connections, {len(client_connections)=}')
     return ConnectionManager.get_connections()
-
-#@app.get("/updates") # to remove
-#async def get():
-#    return updates
 
 @app.get("/patches")
 async def get():
@@ -159,12 +153,12 @@ async def get():
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: int):
     await manager.connect(websocket)
+    await manager.broadcast(f"JOINS Client {client_id=}")
 
-    await manager.broadcast(f"JOINS Client #{client_id} ")
     updater_id = ConnectionManager.get_connections_reference_count()
     updater_id = convert_count_to_reference(updater_id)
 
-    connections2[client_id] = { 'number': ConnectionManager.get_connections_reference_count(),
+    client_connections[client_id] = { 'number': ConnectionManager.get_connections_reference_count(),
                                 'updater_id': updater_id,
                                 'client_id': client_id,
                                 'connect_time': datetime.datetime.now().isoformat(' ', 'seconds'),
@@ -174,7 +168,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: int):
     msg2 = app.basic_dag.G.to_string()
     msg3 = app.D3.G.to_string()
     
-    await manager.send_personal_message(f"Prime site", websocket)
+    await manager.send_personal_message(f"Prime new connection", websocket)
     await manager.send_personal_message(f'BasicDAG:{msg2}', websocket)
     await manager.send_personal_message(f'DupNodes:{msg3}', websocket)
     await manager.send_personal_message(f'FX:{msg}',websocket)
@@ -183,26 +177,24 @@ async def websocket_endpoint(websocket: WebSocket, client_id: int):
         while True:
             now = datetime.datetime.now()
             data = await websocket.receive_text()
-            updates.append((now, client_id, data))
             await manager.send_personal_message(f"You wrote: {data}", websocket)
             await manager.broadcast(f"Client #{client_id} says: {data}")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await manager.broadcast(f"Client #{client_id} left the chat?") #
-        connections2[client_id]['disconnect_time'] = datetime.datetime.now().isoformat(' ', 'seconds')
+        client_connections[client_id]['disconnect_time'] = datetime.datetime.now().isoformat(' ', 'seconds')
 
 
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
 
-
 @app.patch("/items/{item_id}")
 async def update_item(item_id:str, value:float, client_id: int=0):
     time_of_update = datetime.datetime.now().isoformat(' ', 'seconds')
     await manager.broadcast(f'INPUT {time_of_update} {client_id=} {item_id=} {value=}')
 
-    updater_id = connections2.get(client_id, {}).get('updater_id', 'unknown')
+    updater_id = client_connections.get(client_id, {}).get('updater_id', 'unknown')
     updater_id = convert_count_to_reference(updater_id)
         
     patches.append({'update_number': len(patches) +1,
@@ -211,18 +203,17 @@ async def update_item(item_id:str, value:float, client_id: int=0):
                     'time_of_update': time_of_update, 
                     #'client_id': 'client_id',
                     'updater_id': updater_id,
-                    #'updater_id': connections2[client_id]['updater_id'],                    
+                    #'updater_id': client_connections[client_id]['updater_id'],                    
                     #'updater_id': 'AA',
                     'connection_time':'connection_time', 
                     }) 
-
 
     for dag, dag_name in zip([ app.D, app.basic_dag, app.D3 ], ['FX', 'BasicDAG','DupNodes'] ):
 
         dag_update = False
         for node in dag.input_nodes:
             if item_id == node.node_id:
-                print(f'Update {node.display_name=} {value=}')
+                logger.info(f'Update {dag.label} {node.display_name=} {value=}')
                 dag.set_input(item_id, value)
                 msg = dag.G.to_string()
                 dag.set_input(item_id, value)
@@ -232,11 +223,6 @@ async def update_item(item_id:str, value:float, client_id: int=0):
         if dag_update:
            msg = dag.G.to_string()
            await manager.broadcast(f'{dag_name}:{msg}')
-
-           print('done broadcast')
-
-    return {"item_name ?? out put ??" }
-
 
 
  # at last, the bottom of the file/module

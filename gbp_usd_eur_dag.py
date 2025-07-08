@@ -2,7 +2,7 @@
 
 from pydagoras import dag_dot
 
-class FxDAG(dag_dot.DAG): # implementation
+class FxDAG(dag_dot.DAG): 
     __shared_state = {} 
 
     def __init__(self,filename):
@@ -36,6 +36,10 @@ class FxDAG(dag_dot.DAG): # implementation
     @classmethod
     def get_colors(cls, value):
         if value in ( 0, 'e'):
+            return 'red', 'red'
+        if value == '-':
+            return 'black', 'black'
+        if value <= 0:
             return 'red', 'red'
         return 'blue', 'green'
         #return super().get_colors(value)
