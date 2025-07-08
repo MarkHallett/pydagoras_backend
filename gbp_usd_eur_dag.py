@@ -1,19 +1,14 @@
 # gbp_usd_eur_dag.py 
 
-import logging
 from pydagoras import dag_dot
 
-logger = logging.getLogger()
-
-
-class MyDAG(dag_dot.DAG): # implementation
-    '''my dag'''
+class FxDAG(dag_dot.DAG): 
     __shared_state = {} 
 
     def __init__(self,filename):
         self.__dict__ = self.__shared_state
 
-        super(MyDAG, self).__init__(filename)
+        super(FxDAG, self).__init__(filename)
         if hasattr(self,'o'):
             return
 
@@ -38,9 +33,15 @@ class MyDAG(dag_dot.DAG): # implementation
         return self.i.value * self.c.value
 
     # special cases
-    def get_colors(self, value):
+    @classmethod
+    def get_colors(cls, value):
         if value in ( 0, 'e'):
             return 'red', 'red'
-        return super().get_colors(value)
+        if value == '-':
+            return 'black', 'black'
+        if value <= 0:
+            return 'red', 'red'
+        return 'blue', 'green'
+        #return super().get_colors(value)
 
 

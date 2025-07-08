@@ -1,25 +1,31 @@
+# main.py
+
+import datetime
+import string
+import logging
+
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
-from typing import Union
-
 from fastapi import FastAPI
-from pydantic import BaseModel
 
+import basic_dag
+import dup_nodes_dag
 import gbp_usd_eur_dag
-import long_calc_dag
-import short_calc_dag
  
 from fastapi.middleware.cors import CORSMiddleware
 
+logging.basicConfig(level=logging.INFO)
+logging.basicConfig( format='%(asctime)s %(levelname)s %(filename)s %(message)s')
+logger = logging.getLogger(__name__)
+
+logger.info('STARTING')
+
 app = FastAPI()
-app.D = gbp_usd_eur_dag.MyDAG('gbp_usd_eur')
-app.D2 = long_calc_dag.MyDAG2('long_calc')
-app.D3 = short_calc_dag.MyDAG3('duplicate_nodes')
-app.D.set_input('eur-gbp',1)
-app.D.set_input('usd-eur',10)
-print('start ....')
+app.basic_dag = basic_dag.BasicDAG('Basic DAG')
+app.D = gbp_usd_eur_dag.FxDAG('FX GBP/USD/EUR')
+app.D3 = dup_nodes_dag.DupNodesDAG('Duplicate nodes')
 
 app.add_middleware(
         CORSMiddleware,
@@ -28,11 +34,6 @@ app.add_middleware(
         allow_methods=["*"], # Allows all methods
         allow_headers=["*"], # Allows all headers
         )
-
-class Item(BaseModel):
-    name: str
-    price: float
-    is_offer: Union[bool, None] = None
 
 html = """
 <!DOCTYPE html>
@@ -71,82 +72,150 @@ html = """
 </html>
 """
 
+def divmod_excel(n):
+    a, b = divmod(n, 26)
+    if b == 0:
+        return a - 1, b + 26
+    return a, b
+
+def to_excel(num):
+    chars = []
+    while num > 0:
+        num, d = divmod_excel(num)
+        chars.append(string.ascii_uppercase[d - 1])
+    return ''.join(reversed(chars))
+
+
+def convert_count_to_reference(count: int) -> str:
+    """Convert a count to a reference string."""
+    if isinstance(count, str):
+        return count # hacky!!
+    return to_excel(count +26)
 
 class ConnectionManager:
+    connection_reference_count = 0
+    connections = []
+
+    @classmethod
+    def get_connections_reference_count(cls):
+        """Get the current count of connections."""
+        #cls.connection_reference_count += 1  
+        return cls.connection_reference_count    
     def __init__(self):
         self.active_connections: list[WebSocket] = []
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
+        ConnectionManager.connection_reference_count += 1
+        time_of_connection = datetime.datetime.now().isoformat(' ', 'seconds')
         self.active_connections.append(websocket)
+        self.connection_reference = convert_count_to_reference(ConnectionManager.connection_reference_count)
+        logger.info(f'CONNECTED: {ConnectionManager.connection_reference_count=}, {self.connection_reference=}, {time_of_connection=}')
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
+        logger.info(f'DISCONNECTED: {ConnectionManager.connection_reference_count=}, {self.connection_reference=}')
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
         await websocket.send_text(message)
 
     async def broadcast(self, message: str):
-        print('broadcast message')
+        #print('broadcast message')
+        #print(message)
         for connection in self.active_connections:
             await connection.send_text(message)
 
+    @classmethod
+    def get_connections(cls):
+        rtn = []
+        for value in client_connections.values():
+            rtn.append(value)
+        return rtn[::-1]
 
 manager = ConnectionManager()
+client_connections = {}
+patches = []
 
 
 @app.get("/")
 async def get():
     return HTMLResponse(html)
 
+@app.get("/connections")
+async def get():
+    get.logger(f'get connections, {len(client_connections)=}')
+    return ConnectionManager.get_connections()
+
+@app.get("/patches")
+async def get():
+    return patches[::-1]
 
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: int):
     await manager.connect(websocket)
+    await manager.broadcast(f"JOINS Client {client_id=}")
 
+    updater_id = ConnectionManager.get_connections_reference_count()
+    updater_id = convert_count_to_reference(updater_id)
+
+    client_connections[client_id] = { 'number': ConnectionManager.get_connections_reference_count(),
+                                'updater_id': updater_id,
+                                'client_id': client_id,
+                                'connect_time': datetime.datetime.now().isoformat(' ', 'seconds'),
+                                'disconnect_time': 'Active'
+                                }    
     msg = app.D.G.to_string()
-    msg2 = app.D2.G.to_string()
+    msg2 = app.basic_dag.G.to_string()
     msg3 = app.D3.G.to_string()
     
-    await manager.broadcast(f'A:{msg}')
-    await manager.broadcast(f'B:{msg2}')
-    await manager.broadcast(f'C:{msg3}')
+    await manager.send_personal_message(f"Prime new connection", websocket)
+    await manager.send_personal_message(f'BasicDAG:{msg2}', websocket)
+    await manager.send_personal_message(f'DupNodes:{msg3}', websocket)
+    await manager.send_personal_message(f'FX:{msg}',websocket)
 
     try:
         while True:
+            now = datetime.datetime.now()
             data = await websocket.receive_text()
             await manager.send_personal_message(f"You wrote: {data}", websocket)
             await manager.broadcast(f"Client #{client_id} says: {data}")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-        #await manager.broadcast(f"Client #{client_id} left the chat")
+        await manager.broadcast(f"Client #{client_id} left the chat?") #
+        client_connections[client_id]['disconnect_time'] = datetime.datetime.now().isoformat(' ', 'seconds')
 
 
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
 
-
 @app.patch("/items/{item_id}")
-async def update_item(item_id:str, value:float):
-    print(f'patch: {item_id=} {value=}')
-    for dag, dag_name in zip([ app.D, app.D2, app.D3 ], ['A', 'B','C'] ):
+async def update_item(item_id:str, value:float, client_id: int=0):
+    time_of_update = datetime.datetime.now().isoformat(' ', 'seconds')
+    await manager.broadcast(f'INPUT {time_of_update} {client_id=} {item_id=} {value=}')
+
+    updater_id = client_connections.get(client_id, {}).get('updater_id', 'unknown')
+    updater_id = convert_count_to_reference(updater_id)
+        
+    patches.append({'update_number': len(patches) +1,
+                    'input': item_id, 
+                    'value':value, 
+                    'time_of_update': time_of_update, 
+                    #'client_id': 'client_id',
+                    'updater_id': updater_id,
+                    #'updater_id': client_connections[client_id]['updater_id'],                    
+                    #'updater_id': 'AA',
+                    'connection_time':'connection_time', 
+                    }) 
+
+    for dag, dag_name in zip([ app.D, app.basic_dag, app.D3 ], ['FX', 'BasicDAG','DupNodes'] ):
 
         dag_update = False
         for node in dag.input_nodes:
-            #print(f'{node.doc=}, {node.display_name=}')
             if item_id == node.node_id:
-                #print('set input AAAAAAAA..................')
-                #dag.set_input1(item_id, value)
-                #msg = dag.G.to_string()
-                #await manager.broadcast(f'{dag_name}:{msg}')
-                #print('sent 1')
-                #print('set input BBBBBB..................')
+                logger.info(f'Update {dag.label} {node.display_name=} {value=}')
                 dag.set_input(item_id, value)
                 msg = dag.G.to_string()
-                #await manager.broadcast(f'{dag_name}:{msg}')
-                #print('sent 2')
-
                 dag.set_input(item_id, value)
                 
                 dag_update = True
@@ -154,12 +223,6 @@ async def update_item(item_id:str, value:float):
         if dag_update:
            msg = dag.G.to_string()
            await manager.broadcast(f'{dag_name}:{msg}')
-
-           print('done broadcast')
-           #print(msg)
-
-    return {"item_name ?? out put ??" }
-
 
 
  # at last, the bottom of the file/module
