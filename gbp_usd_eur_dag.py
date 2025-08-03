@@ -1,14 +1,14 @@
 # gbp_usd_eur_dag.py 
 
-from pydagoras import dag_dot
+from pydagoras.dag_dot import DAG_dot, calc
 
-class FxDAG(dag_dot.DAG): 
-    __shared_state = {} 
 
-    def __init__(self,filename):
-        self.__dict__ = self.__shared_state
+class FxDAG(DAG_dot): 
 
-        super(FxDAG, self).__init__(filename)
+    def __init__(self):
+        self.filename = 'fx_dag'
+
+        super().__init__(self.filename)
         if hasattr(self,'o'):
             return
 
@@ -24,13 +24,17 @@ class FxDAG(dag_dot.DAG):
         self.b = self.makeNode(label='usd-eur',calc=None,usedby=[self.i], nodetype='in', tooltip='source 2')
         self.c = self.makeNode(label='eur-gbp',calc=None,usedby=[self.bb], nodetype='in', tooltip='source 3')
 
-    @dag_dot.calc
+    
+    @calc
     def calcRateA(self, node=None):
-        return self.a.value * self.b.value
+        return self.a.get_value() * self.b.get_value()
 
-    @dag_dot.calc
+    @calc
     def calcRateB(self, node=None):
-        return self.i.value * self.c.value
+        if isinstance(self.i.get_value(), str):
+            self.i.pp()
+            raise Exception(f'{self.i.node_id}, value {self.i.get_value()} is string, should be numeric')
+        return self.i.get_value() * self.c.get_value()
 
     # special cases
     @classmethod
@@ -42,6 +46,20 @@ class FxDAG(dag_dot.DAG):
         if value <= 0:
             return 'red', 'red'
         return 'blue', 'green'
-        #return super().get_colors(value)
 
 
+if __name__ == '__main__':
+    print('OK #######################################')
+    my_dag = FxDAG()
+
+    # Set input values
+    my_dag.set_input('gbp-usd', 10)
+    my_dag.set_input('usd-eur', 20)
+    my_dag.set_input('eur-gbp', 5)
+
+    print(f'Output: {my_dag.o.get_value()}')  # Should print Output: 1000
+
+    my_dag.ppValues()
+    my_dag.pp()
+    
+    print(my_dag.G.to_string())  # Print the graph representation 
