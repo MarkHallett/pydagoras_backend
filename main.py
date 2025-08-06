@@ -23,9 +23,9 @@ logger = logging.getLogger(__name__)
 logger.info('STARTING')
 
 app = FastAPI()
-app.basic_dag = basic_dag.BasicDAG('Basic DAG')
-app.D = gbp_usd_eur_dag.FxDAG('FX GBP/USD/EUR')
-app.D3 = dup_nodes_dag.DupNodesDAG('Duplicate nodes')
+app.basic_dag = basic_dag.BasicDAG()
+app.dup_nodes_dag = dup_nodes_dag.DupNodesDAG()
+app.gbp_usd_eur_dag = gbp_usd_eur_dag.FxDAG()
 
 app.add_middleware(
         CORSMiddleware,
@@ -164,14 +164,14 @@ async def websocket_endpoint(websocket: WebSocket, client_id: int):
                                 'connect_time': datetime.datetime.now().isoformat(' ', 'seconds'),
                                 'disconnect_time': 'Active'
                                 }    
-    msg = app.D.G.to_string()
-    msg2 = app.basic_dag.G.to_string()
-    msg3 = app.D3.G.to_string()
+    msg_basic = app.basic_dag.G.to_string()
+    msg_dup_nodes = app.dup_nodes_dag.G.to_string()
+    msg_gbp_usd_eur = app.gbp_usd_eur_dag.G.to_string()
     
     await manager.send_personal_message(f"Prime new connection", websocket)
-    await manager.send_personal_message(f'BasicDAG:{msg2}', websocket)
-    await manager.send_personal_message(f'DupNodes:{msg3}', websocket)
-    await manager.send_personal_message(f'FX:{msg}',websocket)
+    await manager.send_personal_message(f'BasicDAG:{msg_basic}', websocket)
+    await manager.send_personal_message(f'DupNodes:{msg_dup_nodes}', websocket)
+    await manager.send_personal_message(f'FX:{msg_gbp_usd_eur}',websocket)
 
     try:
         while True:
@@ -208,23 +208,22 @@ async def update_item(item_id:str, value:float, client_id: int=0):
                     'connection_time':'connection_time', 
                     }) 
 
-    for dag, dag_name in zip([ app.D, app.basic_dag, app.D3 ], ['FX', 'BasicDAG','DupNodes'] ):
+
+    # for each dag, apply the value to the node if applicable
+    for dag, dag_name in zip([ app.gbp_usd_eur_dag, app.basic_dag, app.dup_nodes_dag ], ['FX', 'BasicDAG','DupNodes'] ):
 
         dag_update = False
         for node in dag.input_nodes:
             if item_id == node.node_id:
                 logger.info(f'Update {dag.label} {node.display_name=} {value=}')
                 dag.set_input(item_id, value)
-                msg = dag.G.to_string()
-                dag.set_input(item_id, value)
-                
                 dag_update = True
 
         if dag_update:
-           msg = dag.G.to_string()
-           await manager.broadcast(f'{dag_name}:{msg}')
+            msg = dag.G.to_string().replace(":", "")  # front end renderer cant handle a :
+            await manager.broadcast(f'{dag_name}:{msg}')
 
 
- # at last, the bottom of the file/module
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=5049)
+
