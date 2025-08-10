@@ -143,7 +143,7 @@ async def get():
 
 @app.get("/connections")
 async def get():
-    get.logger(f'get connections, {len(client_connections)=}')
+    logger.info(f'get connections, {len(client_connections)=}')
     return ConnectionManager.get_connections()
 
 @app.get("/patches")
