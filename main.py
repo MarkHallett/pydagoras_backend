@@ -143,7 +143,7 @@ async def get():
 
 @app.get("/connections")
 async def get():
-    get.logger(f'get connections, {len(client_connections)=}')
+    logger.info(f'get connections, {len(client_connections)=}')
     return ConnectionManager.get_connections()
 
 @app.get("/patches")
@@ -164,9 +164,9 @@ async def websocket_endpoint(websocket: WebSocket, client_id: int):
                                 'connect_time': datetime.datetime.now().isoformat(' ', 'seconds'),
                                 'disconnect_time': 'Active'
                                 }    
-    msg_basic = app.basic_dag.G.to_string()
-    msg_dup_nodes = app.dup_nodes_dag.G.to_string()
-    msg_gbp_usd_eur = app.gbp_usd_eur_dag.G.to_string()
+    msg_basic = app.basic_dag.G.to_string().replace(":", "")  # front end renderer cant handle a :
+    msg_dup_nodes = app.dup_nodes_dag.G.to_string().replace(":", "")  # front end renderer cant handle a :
+    msg_gbp_usd_eur = app.gbp_usd_eur_dag.G.to_string().replace(":", "")  # front end renderer cant handle a :
     
     await manager.send_personal_message(f"Prime new connection", websocket)
     await manager.send_personal_message(f'BasicDAG:{msg_basic}', websocket)
