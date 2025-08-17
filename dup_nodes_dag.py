@@ -10,12 +10,9 @@ class DupNodesDAG(DAG_dot): # implementation
         self.filename = 'dup_nodes_dag'
         super().__init__(self.filename)
 
-        # output node
-        self.o = self.makeNode(label='Out',calc=None,usedby = [],    nodetype='out')
-
         # internal nodes
-        self.i2 = self.makeNode(label='add',calc=self.calcRateB,usedby=[self.o], nodetype='internal', tooltip='calc_B')
-        self.i = self.makeNode(label='mutiply',calc=self.calcRateA,usedby=[self.i2], nodetype='internal', tooltip='calc_A')
+        self.i2 = self.makeNode(label='add',calc=self.calcRateB,tooltip='calc_B')
+        self.i = self.makeNode(label='mutiply',calc=self.calcRateA,usedby=[self.i2], tooltip='calc_A')
 
         # input nodes
         self.a = self.makeNode(label='A',calc=None,usedby=[self.i], nodetype='in', tooltip='A')

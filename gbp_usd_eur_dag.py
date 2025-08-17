@@ -12,12 +12,9 @@ class FxDAG(DAG_dot):
         if hasattr(self,'o'):
             return
 
-        # output node
-        self.o = self.makeNode(label='GBP/USD/EUR',calc=None,usedby = [],    nodetype='out')
-
         # internal nodes
-        self.bb = self.makeNode(label='calc_B',calc=self.calcRateB,usedby=[self.o], nodetype='internal', tooltip='multiply')
-        self.i = self.makeNode(label='calc_A',calc=self.calcRateA,usedby=[self.bb], nodetype='internal', tooltip='multiply')
+        self.bb = self.makeNode(label='calc_B',calc=self.calcRateB, tooltip='multiply')
+        self.i = self.makeNode(label='calc_A',calc=self.calcRateA,usedby=[self.bb], tooltip='multiply')
 
         # input nodes
         self.a = self.makeNode(label='gbp-usd',calc=None,usedby=[self.i], nodetype='in', tooltip='source 1')

@@ -8,13 +8,10 @@ class BasicDAG(DAG_dot):
         self.filename = 'basic_dag'
         super().__init__(self.filename)
 
-        # output node
-        self.o = self.makeNode(label='Out',calc=None,usedby = [],    nodetype='out')
-
         # internal nodes
-        self.add = self.makeNode(label='add',calc=self.calc_add,usedby=[self.o], nodetype='internal', tooltip='add')
-        self.mult = self.makeNode(label='multiply',calc=self.calc_multiply,usedby=[self.add], nodetype='internal', tooltip='mult')
-        self.x10 = self.makeNode(label='x10',calc=self.calc_x10,usedby=[self.add], nodetype='internal', tooltip='x10')
+        self.add = self.makeNode(label='add',calc=self.calc_add, tooltip='add')
+        self.mult = self.makeNode(label='multiply',calc=self.calc_multiply,usedby=[self.add], tooltip='mult')
+        self.x10 = self.makeNode(label='x10',calc=self.calc_x10,usedby=[self.add], tooltip='x10')
 
         # input nodes
         self.a = self.makeNode(label='A',calc=None,usedby=[self.mult], nodetype='in', tooltip='source A')
