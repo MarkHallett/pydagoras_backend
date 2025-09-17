@@ -26,17 +26,23 @@ class FxDAG(DAG_dot):
     def calcRateA(self, node=None):
         a = self.a.get_value()
         b = self.b.get_value()
-        rtn = a * b
         if a <= 0 or b <= 0:
             raise Exception( f'Input parameters must be positive {a=} {b=}' )
-        return rtn
+        return a * b
 
     @calc
     def calcRateB(self, node=None):
-        if isinstance(self.i.get_value(), str):
+        i = self.i.get_value()
+        c = self.c.get_value()
+         
+        if isinstance(i, str):
             self.i.pp()
-            raise Exception(f'{self.i.node_id}, value {self.i.get_value()} is string, should be numeric')
-        return self.i.get_value() * self.c.get_value()
+            raise Exception(f'{self.i.node_id}, value {i} is string, should be numeric')
+
+        if c <= 0:
+            raise Exception( f'Input parameters must be positive {c=}' )
+
+        return i * c
 
     # special cases
     @classmethod
