@@ -24,7 +24,12 @@ class FxDAG(DAG_dot):
     
     @calc
     def calcRateA(self, node=None):
-        return self.a.get_value() * self.b.get_value()
+        a = self.a.get_value()
+        b = self.b.get_value()
+        rtn = a * b
+        if a <= 0 or b <= 0:
+            raise Exception( f'Input parameters must be positive {a=} {b=}' )
+        return rtn
 
     @calc
     def calcRateB(self, node=None):
