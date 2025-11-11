@@ -22,7 +22,7 @@ class FxDAG(DAG_dot):
         # input nodes
         self.gbp_usd = self.makeNode(label='gbp-usd',calc=None,usedby=[self.i], nodetype='in', tooltip='source 1')
         self.usd_eur = self.makeNode(label='usd-eur',calc=None,usedby=[self.i], nodetype='in', tooltip='source 2')
-        self.eur_gbpc = self.makeNode(label='eur-gbp',calc=None,usedby=[self.bb], nodetype='in', tooltip='source 3')
+        self.eur_gbp = self.makeNode(label='eur-gbp',calc=None,usedby=[self.bb], nodetype='in', tooltip='source 3')
 
     
     @calc
