@@ -1,5 +1,8 @@
 # gbp_usd_eur_dag.py 
 
+import sys
+print(sys.executable)
+
 from pydagoras.dag_dot import DAG_dot, calc
 
 
@@ -17,32 +20,32 @@ class FxDAG(DAG_dot):
         self.i = self.makeNode(label='calc_A',calc=self.calcRateA,usedby=[self.bb], tooltip='multiply')
 
         # input nodes
-        self.a = self.makeNode(label='gbp-usd',calc=None,usedby=[self.i], nodetype='in', tooltip='source 1')
-        self.b = self.makeNode(label='usd-eur',calc=None,usedby=[self.i], nodetype='in', tooltip='source 2')
-        self.c = self.makeNode(label='eur-gbp',calc=None,usedby=[self.bb], nodetype='in', tooltip='source 3')
+        self.gbp_usd = self.makeNode(label='gbp-usd',calc=None,usedby=[self.i], nodetype='in', tooltip='source 1')
+        self.usd_eur = self.makeNode(label='usd-eur',calc=None,usedby=[self.i], nodetype='in', tooltip='source 2')
+        self.eur_gbpc = self.makeNode(label='eur-gbp',calc=None,usedby=[self.bb], nodetype='in', tooltip='source 3')
 
     
     @calc
     def calcRateA(self, node=None):
-        a = self.a.get_value()
-        b = self.b.get_value()
-        if a <= 0 or b <= 0:
-            raise Exception( f'Input parameters must be positive {a=} {b=}' )
-        return a * b
+        gbp_usd = self.gbp_usd.get_value()
+        usd_eur = self.usd_eur.get_value()
+        if gbp_usd <= 0 or usd_eur <= 0:
+            raise Exception( f'Input parameters must be positive {gbp_usd=} {usd_eur=}' )
+        return gbp_usd * usd_eur
 
     @calc
     def calcRateB(self, node=None):
         i = self.i.get_value()
-        c = self.c.get_value()
+        eur_gbp = self.eur_gbp.get_value()
          
         if isinstance(i, str):
             self.i.pp()
             raise Exception(f'{self.i.node_id}, value {i} is string, should be numeric')
 
-        if c <= 0:
-            raise Exception( f'Input parameters must be positive {c=}' )
+        if eur_gbp <= 0:
+            raise Exception( f'Input parameters must be positive {eur_gbp=}' )
 
-        return i * c
+        return i * eur_gbp
 
     # special cases
     @classmethod
@@ -65,9 +68,9 @@ if __name__ == '__main__':
     my_dag.set_input('usd-eur', 20)
     my_dag.set_input('eur-gbp', 5)
 
-    print(f'Output: {my_dag.o.get_value()}')  # Should print Output: 1000
+    #print(f'Output: {my_dag.o.get_value()}')  # Should print Output: 1000
 
-    my_dag.ppValues()
+    #my_dag.ppValues()
     my_dag.pp()
     
     print(my_dag.G.to_string())  # Print the graph representation 
