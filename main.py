@@ -3,22 +3,65 @@
 import datetime
 import string
 import logging
+import os
+from pathlib import Path
+from logging.handlers import TimedRotatingFileHandler
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
-
-from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 import basic_dag
 import dup_nodes_dag
 import gbp_usd_eur_dag
  
-from fastapi.middleware.cors import CORSMiddleware
 
-logging.basicConfig(level=logging.INFO)
-logging.basicConfig( format='%(asctime)s %(levelname)s %(filename)s %(message)s')
 logger = logging.getLogger(__name__)
+
+# Configure rotating file handler (rotate every day, keep 7 days of logs)
+log_formatter = logging.Formatter(
+    '%(asctime)s %(levelname)s %(filename)s %(lineno)d %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+# Use LOG_DIR environment variable for log files (fallback to current directory)
+log_dir_env = os.environ.get('LOG_DIR', '')
+if log_dir_env:
+    log_dir = Path(log_dir_env)
+else:
+    log_dir = Path('.')
+try:
+    log_dir.mkdir(parents=True, exist_ok=True)
+except Exception:
+    # If creating the directory fails, fallback to current directory
+    log_dir = Path('.')
+
+log_file = log_dir / 'pydagoras_backend.log'
+
+file_handler = TimedRotatingFileHandler(
+    filename=str(log_file),
+    when='midnight',
+    interval=1,
+    backupCount=7,
+    encoding='utf-8',
+)
+file_handler.setFormatter(log_formatter)
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(log_formatter)
+
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+# Avoid adding duplicate handlers if module is reloaded
+if not any(isinstance(h, TimedRotatingFileHandler) for h in root_logger.handlers):
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
+
+# Only show warnings and above from the 'dag_dot' logger
+# The module's logger is `pydagoras.dag_dot` (not plain 'dag_dot'), so set both
+logging.getLogger('dag_dot').setLevel(logging.WARNING)
+logging.getLogger('pydagoras.dag_dot').setLevel(logging.WARNING)
 
 logger.info('STARTING')
 
@@ -120,8 +163,7 @@ class ConnectionManager:
         await websocket.send_text(message)
 
     async def broadcast(self, message: str):
-        #print('broadcast message')
-        #print(message)
+        logger.debug(f'BROADCAST: {message[:50]}... to {len(self.active_connections)} connections')
         for connection in self.active_connections:
             await connection.send_text(message)
 
@@ -175,7 +217,7 @@ async def websocket_endpoint(websocket: WebSocket, client_id: int):
 
     try:
         while True:
-            now = datetime.datetime.now()
+            #now = datetime.datetime.now()
             data = await websocket.receive_text()
             await manager.send_personal_message(f"You wrote: {data}", websocket)
             await manager.broadcast(f"Client #{client_id} says: {data}")
@@ -191,6 +233,7 @@ async def root():
 
 @app.patch("/items/{item_id}")
 async def update_item(item_id:str, value:float, client_id: int=0):
+    logger.info(f'PATCH item_id={item_id}, value={value}, client_id={client_id}')
     time_of_update = datetime.datetime.now().isoformat(' ', 'seconds')
     await manager.broadcast(f'INPUT {time_of_update} {client_id=} {item_id=} {value=}')
 
@@ -225,5 +268,5 @@ async def update_item(item_id:str, value:float, client_id: int=0):
 
 
 if __name__ == "__main__":
+    logger.info('RUNNING')
     uvicorn.run(app, host="127.0.0.1", port=5049)
-
