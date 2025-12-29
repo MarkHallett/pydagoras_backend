@@ -7,7 +7,7 @@ if pgrep -f /home/pydagoras/venv/bin/python > /dev/null; then
     exit 0
 fi
 
-echo "Start pydagroas back end"
+echo "Start pydagoras back end"
 echo "ENV is set to ${ENV}"
 
 if [ -z "${ENV}" ]; then
